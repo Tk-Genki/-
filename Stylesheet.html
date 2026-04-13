@@ -1,0 +1,220 @@
+<style>
+  :root {
+    --bg-top: #f4efe6;
+    --bg-bottom: #dbe9e2;
+    --card: rgba(255, 255, 255, 0.92);
+    --text: #1f2a24;
+    --muted: #5f6f66;
+    --line: #d7dfd7;
+    --accent: #1f7a5c;
+    --accent-strong: #155840;
+    --warn: #d96c3f;
+    --shadow: 0 16px 40px rgba(31, 42, 36, 0.12);
+    --radius: 22px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.85), transparent 28%),
+      linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  }
+
+  .app {
+    width: min(100%, 640px);
+    margin: 0 auto;
+    padding: 24px 18px 32px;
+  }
+
+  .app-header {
+    padding: 8px 4px 20px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.8rem, 4vw, 2.3rem);
+    line-height: 1.2;
+  }
+
+  .subtext {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  .form-card,
+  .status-card {
+    padding: 18px;
+  }
+
+  .field {
+    display: block;
+  }
+
+  .field + .field {
+    margin-top: 16px;
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .input {
+    width: 100%;
+    min-height: 60px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    font-size: 1.05rem;
+    color: var(--text);
+    background: #fff;
+  }
+
+  .input:focus {
+    outline: 3px solid rgba(31, 122, 92, 0.16);
+    border-color: var(--accent);
+  }
+
+  .selected-resident {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(31, 122, 92, 0.08);
+    border: 1px solid rgba(31, 122, 92, 0.14);
+  }
+
+  .selected-resident-label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .selected-resident-value {
+    display: block;
+    font-size: 1.15rem;
+    line-height: 1.5;
+  }
+
+  .button-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 22px 0;
+  }
+
+  .event-button {
+    min-height: 108px;
+    border: 0;
+    border-radius: 24px;
+    padding: 16px 12px;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(31, 122, 92, 0.2);
+    transition: transform 0.08s ease, filter 0.2s ease;
+    touch-action: manipulation;
+  }
+
+  .event-button[data-event-key="undress"] {
+    background: linear-gradient(180deg, #669a8c, #427464);
+  }
+
+  .event-button[data-event-key="wash"] {
+    background: linear-gradient(180deg, #5298c8, #2c6f9d);
+  }
+
+  .event-button[data-event-key="bath"] {
+    background: linear-gradient(180deg, #e39a57, #c5712f);
+  }
+
+  .event-button[data-event-key="finish"] {
+    background: linear-gradient(180deg, #cf7258, #aa4932);
+  }
+
+  .event-button:active {
+    transform: scale(0.98);
+  }
+
+  .event-button:disabled {
+    filter: grayscale(0.2) brightness(0.9);
+    opacity: 0.7;
+  }
+
+  .status-card {
+    display: grid;
+    gap: 12px;
+  }
+
+  .status-row {
+    display: grid;
+    gap: 4px;
+  }
+
+  .status-row-main {
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: #f5f7f6;
+    border: 1px solid var(--line);
+  }
+
+  .status-card[data-status-type="success"] .status-row-main {
+    background: rgba(31, 122, 92, 0.1);
+    border-color: rgba(31, 122, 92, 0.25);
+  }
+
+  .status-card[data-status-type="error"] .status-row-main {
+    background: rgba(217, 108, 63, 0.12);
+    border-color: rgba(217, 108, 63, 0.28);
+  }
+
+  .status-card[data-status-type="loading"] .status-row-main {
+    background: rgba(44, 111, 157, 0.1);
+    border-color: rgba(44, 111, 157, 0.24);
+  }
+
+  .status-label {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .status-text {
+    font-size: 1.05rem;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 480px) {
+    .app {
+      padding: 16px 14px 26px;
+    }
+
+    .button-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .event-button {
+      min-height: 92px;
+      font-size: 1.25rem;
+    }
+  }
+</style>
