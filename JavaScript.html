@@ -1,4 +1,5 @@
 <script>
+  const weekdaySelect = document.getElementById('weekdaySelect');
   const residentSelect = document.getElementById('residentSelect');
   const staffNameInput = document.getElementById('staffName');
   const memoInput = document.getElementById('memo');
@@ -9,7 +10,6 @@
   const statusCard = document.querySelector('.status-card');
 
   const STAFF_NAME_STORAGE_KEY = 'bath-app-staff-name';
-  const SESSION_STORAGE_KEY = 'bath-app-current-session';
 
   document.addEventListener('DOMContentLoaded', initializeApp);
 
@@ -28,21 +28,42 @@
   function bindEvents() {
     staffNameInput.addEventListener('change', persistStaffName);
     residentSelect.addEventListener('change', handleResidentChange);
+    weekdaySelect.addEventListener('change', handleWeekdayChange);
   }
 
   function renderApp(config) {
-    renderResidentOptions(config && config.residents ? config.residents : []);
+    renderWeekdayOptions(
+      config && config.weekdays ? config.weekdays : [],
+      config && config.defaultWeekday ? config.defaultWeekday : ''
+    );
+    renderResidentOptions(config && config.residents ? config.residents : [], '');
     renderEventButtons(config && config.events ? config.events : []);
     updateSelectedResidentDisplay();
     setStatus('記録するボタンを押してください', 'default');
   }
 
-  function renderResidentOptions(residents) {
+  function renderWeekdayOptions(weekdays, defaultWeekday) {
+    weekdaySelect.innerHTML = '';
+
+    weekdays.forEach((weekday) => {
+      const option = document.createElement('option');
+      option.value = weekday.key;
+      option.textContent = weekday.label;
+      if (weekday.key === defaultWeekday) {
+        option.selected = true;
+      }
+      weekdaySelect.appendChild(option);
+    });
+  }
+
+  function renderResidentOptions(residents, preferredResidentId) {
     residentSelect.innerHTML = '';
 
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = '利用者を選択してください';
+    placeholder.textContent = residents.length > 0
+      ? '利用者を選択してください'
+      : 'この曜日に対象利用者はいません';
     residentSelect.appendChild(placeholder);
 
     residents.forEach((resident) => {
@@ -52,6 +73,12 @@
       option.dataset.name = resident.name;
       residentSelect.appendChild(option);
     });
+
+    if (preferredResidentId && residents.some((resident) => resident.id === preferredResidentId)) {
+      residentSelect.value = preferredResidentId;
+    } else {
+      residentSelect.value = '';
+    }
   }
 
   function renderEventButtons(events) {
@@ -69,15 +96,42 @@
     });
   }
 
+  function handleWeekdayChange() {
+    const currentResidentId = residentSelect.value;
+    updateSelectedResidentDisplay();
+    setStatus('利用者一覧を更新中です...', 'loading');
+
+    google.script.run
+      .withSuccessHandler((residents) => {
+        renderResidentOptions(residents || [], currentResidentId);
+        updateSelectedResidentDisplay();
+
+        if (residentSelect.value) {
+          setStatus('利用者一覧を更新しました', 'success');
+        } else if ((residents || []).length > 0) {
+          setStatus('曜日を変更しました。利用者を選択してください', 'default');
+        } else {
+          setStatus('この曜日に対象利用者はいません', 'error');
+        }
+      })
+      .withFailureHandler(showError)
+      .getResidentsByWeekday(weekdaySelect.value);
+  }
+
   function handleResidentChange() {
     updateSelectedResidentDisplay();
-    clearCurrentSession();
   }
 
   function handleEventClick(event) {
     const residentOption = residentSelect.options[residentSelect.selectedIndex];
     const staffName = staffNameInput.value.trim();
     const memo = memoInput.value.trim();
+
+    if (!weekdaySelect.value) {
+      setStatus('曜日を選択してください', 'error');
+      weekdaySelect.focus();
+      return;
+    }
 
     if (!residentSelect.value || !residentOption) {
       setStatus('利用者を選択してください', 'error');
@@ -93,14 +147,8 @@
 
     const pressedAt = new Date();
     const residentName = residentOption.dataset.name || residentOption.textContent;
-    const session = getOrCreateSession({
-      residentId: residentSelect.value,
-      residentName: residentName,
-      staffName: staffName
-    });
-
     const payload = {
-      sessionId: session.sessionId,
+      selectedWeekday: weekdaySelect.value,
       residentId: residentSelect.value,
       residentName: residentName,
       staffName: staffName,
@@ -122,17 +170,21 @@
     setStatus(`${event.label} を記録中です...`, 'loading');
 
     google.script.run
-      .withSuccessHandler(() => {
+      .withSuccessHandler((result) => {
         toggleButtons(false);
-        persistStaffName();
-        setStatus(`${event.label} を記録しました`, 'success');
-        lastRecordText.textContent =
-          `${payload.recordedAt} / ${payload.residentId} / ${payload.staffName} / ${event.label} / ${payload.sessionId}`;
-        memoInput.value = '';
 
-        if (event.key === 'finish') {
-          clearCurrentSession();
+        persistStaffName();
+
+        if (event.key === 'undress' && result.reusedSession) {
+          setStatus('進行中セッションに脱衣開始を追記しました', 'success');
+        } else {
+          setStatus(`${event.label} を記録しました`, 'success');
         }
+
+        lastRecordText.textContent =
+          `${payload.recordedAt} / ${payload.residentId} / ${payload.staffName} / ${event.label} / ${result.sessionId}`;
+
+        memoInput.value = '';
       })
       .withFailureHandler((error) => {
         toggleButtons(false);
@@ -178,52 +230,6 @@
   function showError(error) {
     const message = error && error.message ? error.message : 'エラーが発生しました';
     setStatus(message, 'error');
-  }
-
-  function getOrCreateSession(context) {
-    const saved = loadCurrentSession();
-
-    if (
-      saved &&
-      saved.residentId === context.residentId &&
-      saved.staffName === context.staffName
-    ) {
-      return saved;
-    }
-
-    const session = {
-      sessionId: createSessionId(context.residentId),
-      residentId: context.residentId,
-      residentName: context.residentName,
-      staffName: context.staffName
-    };
-
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-    return session;
-  }
-
-  function loadCurrentSession() {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      return null;
-    }
-  }
-
-  function clearCurrentSession() {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-  }
-
-  function createSessionId(residentId) {
-    const timestamp = Date.now();
-    const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
-    return `${residentId}-${timestamp}-${randomPart}`;
   }
 
   function formatDateTime(date) {
